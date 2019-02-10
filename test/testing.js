@@ -115,15 +115,65 @@ contract("TokenSale", accounts => {
       });
     });
     describe('Selling Tokens Function', function(){
+        
+      it("should not sell more tokens then their balance", async () => {
+        let owner = accounts[0];
+        let buyer = accounts[1];
+        let amount = 25;
 
-      it("should decrease tokens from owner's address");//, async () => {     
- 
-      it("should not sell more tokens then their balance");
+        await shouldFail.reverting(
+          TokenInstance.sellTokens(buyer, 1000)
+        );
+      });
 
-      it("should increase tokens in buyer's address");
+      it("should decrease tokens from owner's address", async () => {
+        let minter = accounts[0];
+        let buyer = accounts[1];
+        let amount = 210;
 
-      it("should return true for successful transfers");
+        await TokenInstance.minting(500, { from: minter })
 
+        assert.equal(
+          (await TokenInstance.balanceOf(minter)),
+          500,
+          "did not mint tokens"
+        );
+        await TokenInstance.sellTokens(buyer, amount)
+        assert.equal(
+          (await TokenInstance.balanceOf(minter)),
+          390,
+          "did not decrement owner balance correctly"
+        );
+      
+        it("should increase tokens in buyer's address", async () => {     
+          assert.equal(
+            (await TokenInstance.balanceOf(buyer)),
+            210,
+            "buyer did not increment the right amount of tokens"
+          );
+        });
+
+      });   
+      it("should fail if non Owner tries to sell tokens", async () => {
+        let owner = accounts[3];
+        let buyer = accounts[0];
+        let amount = 50;
+
+        await shouldFail.reverting(
+          TokenInstance.sellTokens(buyer, amount)
+        );
+      });
+      it("should fail with max tokens reached, Minter modifer", async () => {
+        let owner = accounts[0];
+        let buyer = accounts[1];
+        let amount = 550;
+
+        await TokenInstance.maxTokens()
+
+        await shouldFail.reverting(
+          TokenInstance.sellTokens(buyer,  {from: owner})
+        );
+      });
     });
   });  
   // 3. Event Logs
@@ -173,11 +223,12 @@ contract("TokenSale", accounts => {
           "Total Supply does not match initially at amount 0"
         );
       });
-      describe('Max total supply tokens has not been reached', function(){
+      describe('Max total supply tokens has not been reached', function() {
         it('should be mintable while totalSupplyMax is false', async () => {
           let minter = accounts[0];
+          let amount = 3000;
 
-          await TokenInstance.minting(minter, 3000) 
+          await TokenInstance.minting(amount, {to: minter}) 
             
             assert.equal(
               (await TokenInstance.getTotalSupply()),
@@ -194,34 +245,16 @@ contract("TokenSale", accounts => {
       describe('Reached max total supply tokens minted', function(){
         it('should stop minting when the total supply of tokens has been reached', async () => {
           let minter = accounts[0];
-          
-          await TokenInstance.maxTokens();
-          
-          assert.equal(
-            (await TokenInstance.maxTokens()),
-            true,
-            "function maxTokens failed to return true"
-          )
+          let amount = 100;
+          //await TokenInstance.maxTokens();
 
           await shouldFail.reverting(
-            TokenInstance.minting(100, { from: minter })
+            TokenInstance.minting(amount, { from: minter })
           );
-          
-          it("should allow if Minter modifier tries to mint when Max Tokens are true");
         });         
-      });
-      it("should allow if nonOwner tries to mint with onlyOwner modifier", async () => {       
-        let nonOwner = accounts[0];
-        let amount = 200;
-
-        assert.equal(
-          (await TokenInstance.owner()),
-          nonOwner,
-          "nonOwner is msg.sender"
-        );
-        await shouldFail.reverting(TokenInstance.minting(amount, {from: nonOwner}));
       });
     });
   });
     
 });
+
